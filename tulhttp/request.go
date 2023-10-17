@@ -3,6 +3,7 @@ package tulhttp
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,10 +12,11 @@ import (
 )
 
 type TulRequest struct {
-	Method  string      `json:"method"`
-	Body    interface{} `json:"body"`
-	Url     string      `json:"url"`
-	Timeout int         `json:"timeout"`
+	Method             string      `json:"method"`
+	Body               interface{} `json:"body"`
+	Url                string      `json:"url"`
+	Timeout            int         `json:"timeout"`
+	InsecureSkipVerify bool        `json:"insecureSkipVerify"`
 }
 
 func (r TulRequest) Fetch() TulResponse {
@@ -25,8 +27,16 @@ func (r TulRequest) Fetch() TulResponse {
 	}
 
 	timeout := time.Duration(r.Timeout) * time.Second
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: r.InsecureSkipVerify,
+		},
+	}
+
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: transport,
 	}
 
 	var reqBody []byte
