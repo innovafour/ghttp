@@ -89,7 +89,7 @@ func (r TulRequest) Fetch() TulResponse {
 
 	var data interface{}
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
-		logger.Error("Error unmarshalling response:", bodyBytes, err)
+		logger.Error("Error unmarshalling response:", string(bodyBytes), err, url)
 		return TulResponse{Error: err}
 	}
 
