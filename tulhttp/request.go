@@ -8,25 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 )
 
 type TulRequest struct {
 	Method             string      `json:"method"`
 	Body               interface{} `json:"body"`
 	Url                string      `json:"url"`
-	Timeout            int         `json:"timeout"`
 	InsecureSkipVerify bool        `json:"insecureSkipVerify"`
 }
 
 func (r TulRequest) Fetch() TulResponse {
 	url := r.Url
-
-	if r.Timeout == 0 {
-		r.Timeout = 3
-	}
-
-	timeout := time.Duration(r.Timeout) * time.Second
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -35,7 +27,6 @@ func (r TulRequest) Fetch() TulResponse {
 	}
 
 	client := &http.Client{
-		Timeout:   timeout,
 		Transport: transport,
 	}
 
