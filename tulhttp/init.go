@@ -10,4 +10,5 @@ func Init(h http.Header, l iLogger) {
 	logger = l
 
 	sessionLocal = TulSessionFromHeaders(headers)
+	clientUuid = GetKeyFromHeaders(headers, clientUuidHeadersKey)
 }
