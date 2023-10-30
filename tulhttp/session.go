@@ -2,25 +2,10 @@ package tulhttp
 
 import (
 	"encoding/json"
+	"net/http"
+	"reflect"
 	"strings"
-)
-
-const (
-	sessionTypeHeadersKey               string = "x-session-type"
-	sessionAddressUuidHeadersKey        string = "x-session-address-uuid"
-	sessionAddressTypeHeadersKey        string = "x-session-address-type"
-	sessionMarketingZonesHeadersKey     string = "x-session-marketing-zones"
-	sessionSegmentsHeadersKey           string = "x-session-segments"
-	sessionLogisticZonesHeadersKey      string = "x-session-logistic-zones"
-	sessionZoneUuidHeadersKey           string = "x-session-zone-uuid"
-	sessionWarehousesHeadersKey         string = "x-session-warehouses"
-	sessionUuidHeadersKey               string = "x-session-uuid"
-	sessionWarehouseUuidHeadersKey      string = "x-session-warehouse-uuid"
-	sessionActivityStatusHeadersKey     string = "x-session-activity-status"
-	sessionClientTypeHeadersKey         string = "x-session-client-type"
-	sessionClusterExperimentsHeadersKey string = "x-session-cluster-experiments"
-	sessionDeviceUuidHeadersKey         string = "x-session-device-uuid"
-	sessionClientSubtypeHeadersKey      string = "x-session-client-subtype"
+	"unicode"
 )
 
 type TulSession struct {
@@ -56,26 +41,45 @@ func (s TulSession) ToMap() (map[string]interface{}, error) {
 	return resultMap, nil
 }
 
-func TulSessionFromHeaders(headers map[string][]string) TulSession {
-	return TulSession{
-		Uuid:               GetKeyFromHeaders(headers, sessionUuidHeadersKey),
-		Type:               GetKeyFromHeaders(headers, sessionTypeHeadersKey),
-		AddressUuid:        GetKeyFromHeaders(headers, sessionAddressUuidHeadersKey),
-		AddressType:        GetKeyFromHeaders(headers, sessionAddressTypeHeadersKey),
-		ZoneUuid:           GetKeyFromHeaders(headers, sessionZoneUuidHeadersKey),
-		WarehouseUuid:      GetKeyFromHeaders(headers, sessionWarehouseUuidHeadersKey),
-		ActivityStatus:     GetKeyFromHeaders(headers, sessionActivityStatusHeadersKey),
-		ClientType:         GetKeyFromHeaders(headers, sessionClientTypeHeadersKey),
-		ClusterExperiments: GetKeyFromHeaders(headers, sessionClusterExperimentsHeadersKey),
-		DeviceUuid:         GetKeyFromHeaders(headers, sessionDeviceUuidHeadersKey),
-		ClientSubtype:      GetKeyFromHeaders(headers, sessionClientSubtypeHeadersKey),
-		MarketingZones:     strings.Split(GetKeyFromHeaders(headers, sessionMarketingZonesHeadersKey), ","),
-		Segments:           strings.Split(GetKeyFromHeaders(headers, sessionSegmentsHeadersKey), ","),
-		LogisticZones:      strings.Split(GetKeyFromHeaders(headers, sessionLogisticZonesHeadersKey), ","),
-		Warehouses:         strings.Split(GetKeyFromHeaders(headers, sessionWarehousesHeadersKey), ","),
-	}
-}
-
 func (s TulSession) HasToValidateAvailability() bool {
 	return s.AddressType == "warehouse"
+}
+
+func TulSessionFromHeaders(headers http.Header) TulSession {
+	var session TulSession
+	val := reflect.ValueOf(&session).Elem()
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Field(i)
+		fieldType := typ.Field(i)
+
+		jsonTag := fieldType.Tag.Get("json")
+		if jsonTag == "-" || jsonTag == "" {
+			continue
+		}
+
+		headerKey := "x-session-" + toSnakeCase(jsonTag)
+		headerValue := GetKeyFromHeaders(headers, headerKey)
+
+		if field.Kind() == reflect.Slice && field.Type().Elem().Kind() == reflect.String {
+			sliceVal := strings.Split(headerValue, ",")
+			field.Set(reflect.ValueOf(sliceVal))
+		} else {
+			field.SetString(headerValue)
+		}
+	}
+
+	return session
+}
+
+func toSnakeCase(str string) string {
+	var result []rune
+	for i, r := range str {
+		if unicode.IsUpper(r) && i > 0 {
+			result = append(result, '-')
+		}
+		result = append(result, unicode.ToLower(r))
+	}
+	return string(result)
 }
