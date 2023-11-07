@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 type TulRequest struct {
@@ -24,6 +25,7 @@ func (r TulRequest) Fetch() TulResponse {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: r.InsecureSkipVerify,
 		},
+		IdleConnTimeout: 5 * time.Minute,
 	}
 
 	client := &http.Client{
@@ -55,7 +57,12 @@ func (r TulRequest) Fetch() TulResponse {
 		logger.Error("Exception fetching:", url, err)
 		return TulResponse{Error: err}
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Error("Error closing response body:", err)
+		}
+	}(resp.Body)
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -69,7 +76,12 @@ func (r TulRequest) Fetch() TulResponse {
 			logger.Error("Error creating gzip reader:", err)
 			return TulResponse{Error: err}
 		}
-		defer reader.Close()
+		defer func(reader *gzip.Reader) {
+			err := reader.Close()
+			if err != nil {
+				logger.Error("Error closing gzip reader:", err)
+			}
+		}(reader)
 
 		bodyBytes, err = io.ReadAll(reader)
 		if err != nil {
@@ -85,7 +97,7 @@ func (r TulRequest) Fetch() TulResponse {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Error("Error fetching:", url, data)
+		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " DATA: ", data)
 		return TulResponse{
 			StatusCode: resp.StatusCode,
 			Data:       data,
