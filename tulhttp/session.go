@@ -9,6 +9,7 @@ import (
 )
 
 type TulSession struct {
+	Country            string   `json:"country"`
 	Uuid               string   `json:"uuid"`
 	Warehouses         []string `json:"warehouses"`
 	Type               string   `json:"type"`
@@ -69,6 +70,8 @@ func TulSessionFromHeaders(headers http.Header) TulSession {
 			field.SetString(headerValue)
 		}
 	}
+
+	session.Country = GetKeyFromHeaders(headers, "x-country")
 
 	return session
 }
