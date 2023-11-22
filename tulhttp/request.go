@@ -2,7 +2,6 @@ package tulhttp
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -70,30 +69,15 @@ func (r TulRequest) Fetch() TulResponse {
 		return TulResponse{Error: err}
 	}
 
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		reader, err := gzip.NewReader(bytes.NewReader(bodyBytes))
-		if err != nil {
-			logger.Error("Error creating gzip reader:", err)
-			return TulResponse{Error: err}
-		}
-		defer func(reader *gzip.Reader) {
-			err := reader.Close()
-			if err != nil {
-				logger.Error("Error closing gzip reader:", err)
-			}
-		}(reader)
-
-		bodyBytes, err = io.ReadAll(reader)
-		if err != nil {
-			logger.Error("Error reading decompressed response:", err)
-			return TulResponse{Error: err}
-		}
-	}
-
 	var data interface{}
-	if err := json.Unmarshal(bodyBytes, &data); err != nil {
-		logger.Error("Error unmarshalling response:", string(bodyBytes), err, url)
-		return TulResponse{Error: err}
+
+	if len(bodyBytes) > 0 {
+		if err := json.Unmarshal(bodyBytes, &data); err != nil {
+			logger.Error("Error unmarshalling response:", string(bodyBytes), err, url)
+			return TulResponse{Error: err}
+		}
+	} else {
+		data = make(map[string]interface{})
 	}
 
 	if resp.StatusCode != http.StatusOK {
