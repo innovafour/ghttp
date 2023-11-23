@@ -11,10 +11,11 @@ import (
 )
 
 type TulRequest struct {
-	Method             string      `json:"method"`
-	Body               interface{} `json:"body"`
-	Url                string      `json:"url"`
-	InsecureSkipVerify bool        `json:"insecureSkipVerify"`
+	Url                string            `json:"url"`
+	Body               interface{}       `json:"body"`
+	Method             string            `json:"method"`
+	Headers            map[string]string `json:"headers"`
+	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
 }
 
 func (r TulRequest) Fetch() TulResponse {
@@ -48,6 +49,12 @@ func (r TulRequest) Fetch() TulResponse {
 	for key, value := range headers {
 		if len(value) > 0 {
 			req.Header.Set(key, value[0])
+		}
+	}
+
+	for key, value := range r.Headers {
+		if len(value) > 0 {
+			req.Header.Set(key, value)
 		}
 	}
 
