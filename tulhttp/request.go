@@ -87,7 +87,7 @@ func (r TulRequest) Fetch() TulResponse {
 		data = make(map[string]interface{})
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " DATA: ", data)
 		return TulResponse{
 			StatusCode: resp.StatusCode,
