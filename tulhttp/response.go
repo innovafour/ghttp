@@ -17,14 +17,14 @@ func (r TulResponse) Is404() bool {
 	return r.StatusCode == http.StatusNotFound
 }
 
-func (r *TulResponse) IsOK() bool {
+func (r TulResponse) IsOK() bool {
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusInternalServerError
 	}
 
 	jsonData, err := json.Marshal(r.Data)
 	if err != nil {
-		fmt.Println("Error al serializar el mapa:", err)
+		fmt.Println("Error marshalling data:", err)
 		return false
 	}
 
