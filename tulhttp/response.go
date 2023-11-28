@@ -1,8 +1,6 @@
 package tulhttp
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -21,14 +19,6 @@ func (r TulResponse) IsOK() bool {
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusInternalServerError
 	}
-
-	jsonData, err := json.Marshal(r.Data)
-	if err != nil {
-		fmt.Println("Error marshalling data:", err)
-		return false
-	}
-
-	r.DataByte = jsonData
 
 	return (r.StatusCode >= 200 && r.StatusCode < 300) && r.Error == nil
 }

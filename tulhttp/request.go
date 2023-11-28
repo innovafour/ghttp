@@ -1,6 +1,7 @@
 package tulhttp
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
@@ -63,6 +64,7 @@ func (r TulRequest) Fetch() TulResponse {
 		logger.Error("Exception fetching:", url, err)
 		return TulResponse{Error: err}
 	}
+
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
@@ -99,5 +101,61 @@ func (r TulRequest) Fetch() TulResponse {
 	return TulResponse{
 		StatusCode: resp.StatusCode,
 		Data:       data,
+	}
+}
+
+func (r TulRequest) FetchSSE(messageChan chan []byte) {
+	url := r.Url
+
+	var reqBody []byte
+	var err error
+	if r.Body != nil {
+		reqBody, err = json.Marshal(r.Body)
+		if err != nil {
+			logger.Error("Error marshalling request body:", err)
+			return
+		}
+	}
+
+	client := &http.Client{}
+
+	req, err := http.NewRequest(
+		r.Method,
+		url,
+		bytes.NewBuffer(reqBody),
+	)
+
+	if err != nil {
+		logger.Error("Error creating request:", err)
+		return
+	}
+
+	for key, value := range headers {
+		if len(value) > 0 {
+			req.Header.Set(key, value[0])
+		}
+	}
+
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Connection", "keep-alive")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " ERROR: ", err)
+
+		return
+	}
+
+	defer resp.Body.Close()
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			logger.Error("Error reading response:", err)
+			break
+		}
+
+		messageChan <- line
 	}
 }
