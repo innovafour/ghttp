@@ -80,27 +80,18 @@ func (r TulRequest) Fetch() TulResponse {
 
 	var data interface{}
 
-	if len(bodyBytes) > 0 {
-		if err := json.Unmarshal(bodyBytes, &data); err != nil {
-			logger.Error("Error unmarshalling response:", string(bodyBytes), err, url)
-			return TulResponse{Error: err}
-		}
-	} else {
-		data = make(map[string]interface{})
-	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " DATA: ", data)
 		return TulResponse{
 			StatusCode: resp.StatusCode,
-			Data:       data,
+			Data:       bodyBytes,
 			Error:      fmt.Errorf("bad status: %s", resp.Status),
 		}
 	}
 
 	return TulResponse{
 		StatusCode: resp.StatusCode,
-		Data:       data,
+		Data:       bodyBytes,
 	}
 }
 
@@ -146,7 +137,12 @@ func (r TulRequest) FetchSSE(messageChan chan []byte) {
 		return
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Error("Error closing response body:", err)
+		}
+	}(resp.Body)
 
 	reader := bufio.NewReader(resp.Body)
 	for {
