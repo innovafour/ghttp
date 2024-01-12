@@ -43,7 +43,7 @@ func (r TulRequest) Fetch() TulResponse {
 		}
 	}
 
-	if r.BodyAsStringArray != nil {
+	if len(r.BodyAsStringArray) > 0 {
 		reqBody, err = json.Marshal(r.BodyAsStringArray)
 		if err != nil {
 			return TulResponse{Error: err}
