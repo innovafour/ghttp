@@ -12,9 +12,8 @@ import (
 )
 
 type TulRequest struct {
-	Url                string      `json:"url"`
-	Body               interface{} `json:"body"`
-	BodyAsStringArray  []string
+	Url                string            `json:"url"`
+	Body               interface{}       `json:"body"`
 	Method             string            `json:"method"`
 	Headers            map[string]string `json:"headers"`
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
@@ -38,13 +37,6 @@ func (r TulRequest) Fetch() TulResponse {
 	var err error
 	if r.Body != nil {
 		reqBody, err = json.Marshal(r.Body)
-		if err != nil {
-			return TulResponse{Error: err}
-		}
-	}
-
-	if len(r.BodyAsStringArray) > 0 {
-		reqBody, err = json.Marshal(r.BodyAsStringArray)
 		if err != nil {
 			return TulResponse{Error: err}
 		}
