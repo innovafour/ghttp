@@ -12,9 +12,9 @@ import (
 )
 
 type TulRequest struct {
-	Url                string            `json:"url"`
-	Body               interface{}       `json:"body"`
-	BodyAsStringArray  []string          `json:"bodyAsStringArray"`
+	Url                string      `json:"url"`
+	Body               interface{} `json:"body"`
+	BodyAsStringArray  []string
 	Method             string            `json:"method"`
 	Headers            map[string]string `json:"headers"`
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
