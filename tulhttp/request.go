@@ -79,7 +79,6 @@ func (r TulRequest) Fetch() TulResponse {
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " DATA: ", string(bodyBytes))
 		return TulResponse{
 			StatusCode: resp.StatusCode,
 			Data:       bodyBytes,
