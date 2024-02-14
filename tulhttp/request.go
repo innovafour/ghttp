@@ -93,59 +93,68 @@ func (r TulRequest) Fetch() TulResponse {
 }
 
 func (r TulRequest) FetchSSE(messageChan chan []byte) {
-	url := r.Url
+	if r.Url == "" {
+		logger.Error("URL is empty")
+		return
+	}
 
-	var reqBody []byte
+	reqBody := []byte{}
 	var err error
 	if r.Body != nil {
 		reqBody, err = json.Marshal(r.Body)
 		if err != nil {
-			logger.Error("Error marshalling request body:", err)
+			logger.Error("Error marshalling request body: ", err)
 			return
 		}
 	}
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 0,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: r.InsecureSkipVerify,
+			},
+		},
+	}
 
-	req, err := http.NewRequest(
-		r.Method,
-		url,
-		bytes.NewBuffer(reqBody),
-	)
-
+	req, err := http.NewRequest(r.Method, r.Url, bytes.NewBuffer(reqBody))
 	if err != nil {
-		logger.Error("Error creating request:", err)
+		logger.Error("Error creating request: ", err)
 		return
 	}
 
-	for key, value := range headers {
+	for key, value := range r.Headers {
 		if len(value) > 0 {
-			req.Header.Set(key, value[0])
+			req.Header.Set(key, value)
 		}
 	}
 
+	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Connection", "keep-alive")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Error("Error fetching: ", " URL: ", url, " STATUS CODE: ", resp.StatusCode, " ERROR: ", err)
-
+		logger.Error("Error fetching: ", "URL: ", r.Url, " Error: ", err)
 		return
 	}
 
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			logger.Error("Error closing response body:", err)
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("Received non-OK status code: ", resp.StatusCode)
+		return
+	}
 
 	reader := bufio.NewReader(resp.Body)
 	for {
 		line, err := reader.ReadBytes('\n')
+		if err == io.EOF {
+			break
+		}
+
 		if err != nil {
-			logger.Error("Error reading response:", err)
+			logger.Error("Error reading response: ", err)
 			break
 		}
 

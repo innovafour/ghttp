@@ -13,7 +13,10 @@ func (l Logger) Error(...interface{}) {}
 func (l Logger) Info(...interface{})  {}
 
 func main() {
-	tulhttp.Init(map[string][]string{}, Logger{})
+	tulhttp.Init(map[string][]string{
+		"AWS_REGION": {"us-east-1"},
+	}, Logger{})
+
 	request := tulhttp.TulRequest{
 		Method: "POST",
 		Url:    "https://api.br.soytul.com/product/catalog/v1/products/ean/multiple-ean/",
