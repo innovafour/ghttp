@@ -93,6 +93,8 @@ func (r TulRequest) Fetch() TulResponse {
 }
 
 func (r TulRequest) FetchSSE(messageChan chan []byte) {
+	defer close(messageChan)
+
 	if r.Url == "" {
 		logger.Error("URL is empty")
 		return
@@ -140,11 +142,6 @@ func (r TulRequest) FetchSSE(messageChan chan []byte) {
 	}
 
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		logger.Error("Received non-OK status code: ", resp.StatusCode)
-		return
-	}
 
 	reader := bufio.NewReader(resp.Body)
 	for {
