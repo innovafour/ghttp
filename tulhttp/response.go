@@ -11,7 +11,7 @@ type TulResponse struct {
 	Error      error  `json:"err"`
 }
 
-func (r TulResponse) DataAsMap() map[string]interface{} {
+func (r *TulResponse) DataAsMap() map[string]interface{} {
 	var result map[string]interface{}
 
 	err := json.Unmarshal(r.Data, &result)
@@ -24,7 +24,7 @@ func (r TulResponse) DataAsMap() map[string]interface{} {
 	return result
 }
 
-func (r TulResponse) DataAsSlice() []interface{} {
+func (r *TulResponse) DataAsSlice() []interface{} {
 	var result []interface{}
 
 	err := json.Unmarshal(r.Data, &result)
@@ -37,14 +37,18 @@ func (r TulResponse) DataAsSlice() []interface{} {
 	return result
 }
 
-func (r TulResponse) Is404() bool {
+func (r *TulResponse) Is404() bool {
 	return r.StatusCode == http.StatusNotFound
 }
 
-func (r TulResponse) IsOK() bool {
+func (r *TulResponse) IsOK() bool {
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusInternalServerError
 	}
 
 	return (r.StatusCode >= 200 && r.StatusCode < 300) && r.Error == nil
+}
+
+func (r *TulResponse) Unmarshal(data any) error {
+	return json.Unmarshal(r.Data, data)
 }
