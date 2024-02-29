@@ -19,7 +19,7 @@ type TulRequest struct {
 	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
 }
 
-func (r TulRequest) Fetch() TulResponse {
+func (r *TulRequest) Fetch() TulResponse {
 	url := r.Url
 
 	transport := &http.Transport{
@@ -92,7 +92,7 @@ func (r TulRequest) Fetch() TulResponse {
 	}
 }
 
-func (r TulRequest) FetchSSE(messageChan chan []byte) {
+func (r *TulRequest) FetchSSE(messageChan chan []byte) {
 	defer close(messageChan)
 
 	if r.Url == "" {
