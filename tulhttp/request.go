@@ -3,6 +3,7 @@ package tulhttp
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -65,17 +66,36 @@ func (r *TulRequest) Fetch() TulResponse {
 		return TulResponse{Error: err}
 	}
 
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			logger.Error("Error closing response body:", err)
-		}
-	}(resp.Body)
+	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Error("Error reading response:", err)
-		return TulResponse{Error: err}
+	var bodyBytes []byte
+
+	if resp.Header.Get("Content-Encoding") == "gzip" {
+		reader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return TulResponse{Error: err}
+		}
+
+		defer func() {
+			err := reader.Close()
+			if err != nil {
+				logger.Error("Error closing gzip reader:", err)
+			}
+		}()
+
+		bodyBytes, err = io.ReadAll(reader)
+		if err != nil {
+			logger.Error("Error reading gzip body: ", err)
+
+			return TulResponse{Error: err}
+		}
+	} else {
+		bodyBytes, err = io.ReadAll(resp.Body)
+		if err != nil {
+			logger.Error("Error reading body: ", err)
+
+			return TulResponse{Error: err}
+		}
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
