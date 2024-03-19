@@ -37,13 +37,13 @@ func (r *TulRequest) Fetch() TulResponse {
 	var reqBody []byte
 	var err error
 
-	switch r.Body.(type) {
+	switch typedBody := r.Body.(type) {
 	case string:
-		reqBody = []byte(r.Body.(string))
+		reqBody = []byte(typedBody)
 	case []byte:
-		reqBody = r.Body.([]byte)
+		reqBody = typedBody
 	case io.ReadCloser:
-		body, err := io.ReadAll(r.Body.(io.ReadCloser))
+		body, err := io.ReadAll(typedBody)
 		if err != nil {
 			return TulResponse{Error: err}
 		}
