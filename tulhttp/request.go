@@ -36,10 +36,25 @@ func (r *TulRequest) Fetch() TulResponse {
 
 	var reqBody []byte
 	var err error
-	if r.Body != nil {
-		reqBody, err = json.Marshal(r.Body)
+
+	switch r.Body.(type) {
+	case string:
+		reqBody = []byte(r.Body.(string))
+	case []byte:
+		reqBody = r.Body.([]byte)
+	case io.ReadCloser:
+		body, err := io.ReadAll(r.Body.(io.ReadCloser))
 		if err != nil {
 			return TulResponse{Error: err}
+		}
+
+		reqBody = body
+	default:
+		if r.Body != nil {
+			reqBody, err = json.Marshal(r.Body)
+			if err != nil {
+				return TulResponse{Error: err}
+			}
 		}
 	}
 
