@@ -13,11 +13,12 @@ import (
 )
 
 type TulRequest struct {
-	Url                string            `json:"url"`
-	Body               interface{}       `json:"body"`
-	Method             string            `json:"method"`
-	Headers            map[string]string `json:"headers"`
-	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
+	Url                  string                   `json:"url"`
+	Body                 interface{}              `json:"body"`
+	Method               string                   `json:"method"`
+	Headers              map[string]string        `json:"headers"`
+	InsecureSkipVerify   bool                     `json:"insecureSkipVerify"`
+	RenegotiationSupport tls.RenegotiationSupport `json:"renegotiationSupport"`
 }
 
 func (r *TulRequest) Fetch() TulResponse {
@@ -26,6 +27,7 @@ func (r *TulRequest) Fetch() TulResponse {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: r.InsecureSkipVerify,
+			Renegotiation:      r.RenegotiationSupport,
 		},
 		IdleConnTimeout: 5 * time.Minute,
 	}
@@ -36,10 +38,25 @@ func (r *TulRequest) Fetch() TulResponse {
 
 	var reqBody []byte
 	var err error
-	if r.Body != nil {
-		reqBody, err = json.Marshal(r.Body)
+
+	switch typedBody := r.Body.(type) {
+	case string:
+		reqBody = []byte(typedBody)
+	case []byte:
+		reqBody = typedBody
+	case io.ReadCloser:
+		body, err := io.ReadAll(typedBody)
 		if err != nil {
 			return TulResponse{Error: err}
+		}
+
+		reqBody = body
+	default:
+		if r.Body != nil {
+			reqBody, err = json.Marshal(r.Body)
+			if err != nil {
+				return TulResponse{Error: err}
+			}
 		}
 	}
 

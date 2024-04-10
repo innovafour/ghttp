@@ -84,5 +84,8 @@ func toSnakeCase(str string) string {
 		}
 		result = append(result, unicode.ToLower(r))
 	}
-	return string(result)
+
+	finalResult := strings.ReplaceAll(string(result), "_", "-")
+
+	return finalResult
 }
