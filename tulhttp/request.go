@@ -13,11 +13,12 @@ import (
 )
 
 type TulRequest struct {
-	Url                string            `json:"url"`
-	Body               interface{}       `json:"body"`
-	Method             string            `json:"method"`
-	Headers            map[string]string `json:"headers"`
-	InsecureSkipVerify bool              `json:"insecureSkipVerify"`
+	Url                  string                   `json:"url"`
+	Body                 interface{}              `json:"body"`
+	Method               string                   `json:"method"`
+	Headers              map[string]string        `json:"headers"`
+	InsecureSkipVerify   bool                     `json:"insecureSkipVerify"`
+	RenegotiationSupport tls.RenegotiationSupport `json:"renegotiationSupport"`
 }
 
 func (r *TulRequest) Fetch() TulResponse {
@@ -26,6 +27,7 @@ func (r *TulRequest) Fetch() TulResponse {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: r.InsecureSkipVerify,
+			Renegotiation:      r.RenegotiationSupport,
 		},
 		IdleConnTimeout: 5 * time.Minute,
 	}
