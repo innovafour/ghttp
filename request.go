@@ -1,4 +1,4 @@
-package tulhttp
+package ghttp
 
 import (
 	"bufio"
@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
-type TulRequest struct {
+type Request struct {
 	Url                  string                   `json:"url"`
 	Body                 interface{}              `json:"body"`
 	Method               string                   `json:"method"`
@@ -21,8 +22,8 @@ type TulRequest struct {
 	RenegotiationSupport tls.RenegotiationSupport `json:"renegotiationSupport"`
 }
 
-func (r *TulRequest) Fetch() TulResponse {
-	url := r.Url
+func (r *Request) Fetch() Response {
+	uri := r.Url
 
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
@@ -36,33 +37,14 @@ func (r *TulRequest) Fetch() TulResponse {
 		Transport: transport,
 	}
 
-	var reqBody []byte
-	var err error
-
-	switch typedBody := r.Body.(type) {
-	case string:
-		reqBody = []byte(typedBody)
-	case []byte:
-		reqBody = typedBody
-	case io.ReadCloser:
-		body, err := io.ReadAll(typedBody)
-		if err != nil {
-			return TulResponse{Error: err}
-		}
-
-		reqBody = body
-	default:
-		if r.Body != nil {
-			reqBody, err = json.Marshal(r.Body)
-			if err != nil {
-				return TulResponse{Error: err}
-			}
-		}
+	reqBody, err := r.getBody()
+	if err != nil {
+		return Response{Error: err}
 	}
 
-	req, err := http.NewRequest(r.Method, url, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequest(r.Method, uri, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return TulResponse{Error: err}
+		return Response{Error: err}
 	}
 
 	for key, value := range headers {
@@ -79,8 +61,8 @@ func (r *TulRequest) Fetch() TulResponse {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Error("Exception fetching:", url, err)
-		return TulResponse{Error: err}
+		logger.Error("Exception fetching:", uri, err)
+		return Response{Error: err}
 	}
 
 	defer resp.Body.Close()
@@ -90,7 +72,7 @@ func (r *TulRequest) Fetch() TulResponse {
 	if resp.Header.Get("Content-Encoding") == "gzip" {
 		reader, err := gzip.NewReader(resp.Body)
 		if err != nil {
-			return TulResponse{Error: err}
+			return Response{Error: err}
 		}
 
 		defer func() {
@@ -104,32 +86,71 @@ func (r *TulRequest) Fetch() TulResponse {
 		if err != nil {
 			logger.Error("Error reading gzip body: ", err)
 
-			return TulResponse{Error: err}
+			return Response{Error: err}
 		}
 	} else {
 		bodyBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
 			logger.Error("Error reading body: ", err)
 
-			return TulResponse{Error: err}
+			return Response{Error: err}
 		}
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return TulResponse{
+		return Response{
 			StatusCode: resp.StatusCode,
 			Data:       bodyBytes,
 			Error:      fmt.Errorf("bad status: %s", resp.Status),
 		}
 	}
 
-	return TulResponse{
+	return Response{
 		StatusCode: resp.StatusCode,
 		Data:       bodyBytes,
 	}
 }
 
-func (r *TulRequest) FetchSSE(messageChan chan []byte) {
+func (r *Request) getBody() (reqBody []byte, err error) {
+	contentType, hasContentType := r.Headers["Content-Type"]
+
+	if hasContentType && contentType == "application/x-www-form-urlencoded" {
+		switch typedBody := r.Body.(type) {
+		case map[string]string:
+			formValues := url.Values{}
+			for key, value := range typedBody {
+				formValues.Set(key, value)
+			}
+			reqBody = []byte(formValues.Encode())
+		default:
+			return nil, fmt.Errorf("invalid body type for Content-Type application/x-www-form-urlencoded")
+		}
+	} else {
+		switch typedBody := r.Body.(type) {
+		case string:
+			reqBody = []byte(typedBody)
+		case []byte:
+			reqBody = typedBody
+		case io.ReadCloser:
+			body, err := io.ReadAll(typedBody)
+			if err != nil {
+				return nil, err
+			}
+			reqBody = body
+		default:
+			if r.Body != nil {
+				reqBody, err = json.Marshal(r.Body)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return reqBody, nil
+}
+
+func (r *Request) FetchSSE(messageChan chan []byte) {
 	defer close(messageChan)
 
 	if r.Url == "" {

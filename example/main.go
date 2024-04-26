@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"bitbucket.org/Soytul/library-go-http/tulhttp"
+	"github.com/adcmdev/ghttp"
 )
 
 type Logger struct{}
@@ -20,9 +20,9 @@ func (l Logger) Info(v ...interface{}) {
 }
 
 func main() {
-	tulhttp.Init(map[string][]string{}, Logger{})
+	ghttp.Init(map[string][]string{}, Logger{})
 
-	// request := tulhttp.TulRequest{
+	// request := ghttp.Request{
 	// 	Method: "POST",
 	// 	Url:    "https://api.br.soytul.com/product/catalog/v1/products/ean/multiple-ean/",
 	// 	Body:   []string{"7891040219247"},
@@ -43,7 +43,7 @@ func main() {
 
 	// SSE example
 
-	request := tulhttp.TulRequest{
+	request := ghttp.Request{
 		Method: "POST",
 		Url:    "https://api.openai.com/v1/chat/completions",
 		Body: map[string]interface{}{
@@ -52,7 +52,7 @@ func main() {
 			"messages": []map[string]string{
 				{
 					"role":    "system",
-					"content": "Tu nombre es Tulia, eres la asistente virtual de TUL",
+					"content": "Tu nombre es ia, eres la asistente virtual de TUL",
 				},
 				{
 					"role":    "user",

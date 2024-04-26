@@ -1,17 +1,17 @@
-package tulhttp
+package ghttp
 
 import (
 	"encoding/json"
 	"net/http"
 )
 
-type TulResponse struct {
+type Response struct {
 	StatusCode int    `json:"status"`
 	Data       []byte `json:"data_byte"`
 	Error      error  `json:"err"`
 }
 
-func (r *TulResponse) DataAsMap() map[string]interface{} {
+func (r *Response) DataAsMap() map[string]interface{} {
 	var result map[string]interface{}
 
 	err := json.Unmarshal(r.Data, &result)
@@ -24,7 +24,7 @@ func (r *TulResponse) DataAsMap() map[string]interface{} {
 	return result
 }
 
-func (r *TulResponse) DataAsSlice() []interface{} {
+func (r *Response) DataAsSlice() []interface{} {
 	var result []interface{}
 
 	err := json.Unmarshal(r.Data, &result)
@@ -37,11 +37,11 @@ func (r *TulResponse) DataAsSlice() []interface{} {
 	return result
 }
 
-func (r *TulResponse) Is404() bool {
+func (r *Response) Is404() bool {
 	return r.StatusCode == http.StatusNotFound
 }
 
-func (r *TulResponse) IsOK() bool {
+func (r *Response) IsOK() bool {
 	if r.StatusCode == 0 {
 		r.StatusCode = http.StatusInternalServerError
 	}
@@ -49,6 +49,6 @@ func (r *TulResponse) IsOK() bool {
 	return (r.StatusCode >= 200 && r.StatusCode < 300) && r.Error == nil
 }
 
-func (r *TulResponse) Unmarshal(data any) error {
+func (r *Response) Unmarshal(data any) error {
 	return json.Unmarshal(r.Data, data)
 }

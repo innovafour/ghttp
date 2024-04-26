@@ -1,3 +1,3 @@
-module bitbucket.org/Soytul/library-go-http
+module github.com/adcmdev/ghttp
 
-go 1.20
+go 1.22

@@ -1,4 +1,4 @@
-package tulhttp
+package ghttp
 
 import (
 	"fmt"
@@ -6,23 +6,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-)
-
-var (
-	sessionLocal TulSession
-	clientUuid   string
-)
-
-func Session() TulSession {
-	return sessionLocal
-}
-
-func ClientUuid() string {
-	return clientUuid
-}
-
-const (
-	clientUuidHeadersKey string = "X-User-Uuid"
 )
 
 func GetKeyFromHeaders(headers http.Header, key string) string {
