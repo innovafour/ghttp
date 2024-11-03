@@ -1,7 +1,6 @@
 package ghttp
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
@@ -11,23 +10,35 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/adcmdev/logger"
 )
 
 type Request struct {
 	Url                  string                   `json:"url"`
 	Body                 interface{}              `json:"body"`
 	Method               string                   `json:"method"`
-	Headers              map[string]string        `json:"headers"`
-	InsecureSkipVerify   bool                     `json:"insecureSkipVerify"`
+	Headers              map[string][]string      `json:"headers"`
+	InsecureSkipVerify   *bool                    `json:"insecureSkipVerify"`
 	RenegotiationSupport tls.RenegotiationSupport `json:"renegotiationSupport"`
+	MaxRetries           int                      `json:"maxRetries"`
+	RetryDelay           time.Duration            `json:"retryDelay"`
 }
 
 func (r *Request) Fetch() Response {
 	uri := r.Url
 
+	var insecure bool
+
+	if r.InsecureSkipVerify != nil {
+		insecure = *r.InsecureSkipVerify
+	} else {
+		insecure = true
+	}
+
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: r.InsecureSkipVerify,
+			InsecureSkipVerify: insecure,
 			Renegotiation:      r.RenegotiationSupport,
 		},
 		IdleConnTimeout: 5 * time.Minute,
@@ -42,84 +53,114 @@ func (r *Request) Fetch() Response {
 		return Response{Error: err}
 	}
 
-	req, err := http.NewRequest(r.Method, uri, bytes.NewBuffer(reqBody))
-	if err != nil {
-		return Response{Error: err}
+	if r.MaxRetries == 0 {
+		r.MaxRetries = 3
 	}
 
-	for key, value := range headers {
-		if len(value) > 0 {
-			req.Header.Set(key, value[0])
-		}
+	if r.RetryDelay == 0 {
+		r.RetryDelay = 1 * time.Second
 	}
 
-	for key, value := range r.Headers {
-		if len(value) > 0 {
-			req.Header.Set(key, value)
-		}
-	}
+	var resp *http.Response
 
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Error("Exception fetching:", uri, err)
-		return Response{Error: err}
-	}
-
-	defer resp.Body.Close()
-
-	var bodyBytes []byte
-
-	if resp.Header.Get("Content-Encoding") == "gzip" {
-		reader, err := gzip.NewReader(resp.Body)
+	for attempt := 0; attempt <= r.MaxRetries; attempt++ {
+		req, err := http.NewRequest(r.Method, uri, bytes.NewBuffer(reqBody))
 		if err != nil {
 			return Response{Error: err}
 		}
 
-		defer func() {
-			err := reader.Close()
-			if err != nil {
-				logger.Error("Error closing gzip reader:", err)
+		for key, value := range headers {
+			if len(value) > 0 {
+				req.Header.Set(key, value[0])
 			}
-		}()
+		}
 
-		bodyBytes, err = io.ReadAll(reader)
+		for key, value := range r.Headers {
+			if len(value) > 0 {
+				req.Header.Set(key, value[0])
+			}
+		}
+
+		resp, err = client.Do(req)
 		if err != nil {
-			logger.Error("Error reading gzip body: ", err)
-
+			logger.Error("Exception fetching:", uri, err)
 			return Response{Error: err}
 		}
-	} else {
-		bodyBytes, err = io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Error("Error reading body: ", err)
 
-			return Response{Error: err}
+		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
+			if attempt < r.MaxRetries {
+				fmt.Printf("Request failed with status %d, retrying... (attempt %d of %d)\n", resp.StatusCode, attempt+1, r.MaxRetries)
+				time.Sleep(r.RetryDelay)
+				continue
+			}
 		}
-	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+
+		var bodyBytes []byte
+
+		if resp.Header.Get("Content-Encoding") == "gzip" {
+			reader, err := gzip.NewReader(resp.Body)
+			if err != nil {
+				return Response{Error: err}
+			}
+
+			defer func() {
+				err := reader.Close()
+				if err != nil {
+					logger.Error("Error closing gzip reader:", err)
+				}
+			}()
+
+			bodyBytes, err = io.ReadAll(reader)
+			if err != nil {
+				logger.Error("Error reading gzip body: ", err)
+				return Response{Error: err}
+			}
+		} else {
+			bodyBytes, err = io.ReadAll(resp.Body)
+			if err != nil {
+				logger.Error("Error reading body: ", err)
+				return Response{Error: err}
+			}
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return Response{
+				StatusCode: resp.StatusCode,
+				Data:       bodyBytes,
+				Error:      fmt.Errorf("bad status: %s", resp.Status),
+			}
+		}
+
 		return Response{
 			StatusCode: resp.StatusCode,
 			Data:       bodyBytes,
-			Error:      fmt.Errorf("bad status: %s", resp.Status),
+			Headers:    resp.Header,
 		}
 	}
 
 	return Response{
-		StatusCode: resp.StatusCode,
-		Data:       bodyBytes,
+		Error: fmt.Errorf("request failed after %d retries", r.MaxRetries),
 	}
 }
 
 func (r *Request) getBody() (reqBody []byte, err error) {
-	contentType, hasContentType := r.Headers["Content-Type"]
+	contentType := GetKeyFromHeaders(r.Headers, "Content-Type")
 
-	if hasContentType && contentType == "application/x-www-form-urlencoded" {
+	if contentType == "application/x-www-form-urlencoded" {
 		switch typedBody := r.Body.(type) {
 		case map[string]string:
 			formValues := url.Values{}
 			for key, value := range typedBody {
 				formValues.Set(key, value)
+			}
+			reqBody = []byte(formValues.Encode())
+		case map[string]interface{}:
+			formValues := url.Values{}
+			for key, value := range typedBody {
+				valueString := fmt.Sprintf("%v", value)
+				formValues.Set(key, valueString)
 			}
 			reqBody = []byte(formValues.Encode())
 		default:
@@ -148,71 +189,4 @@ func (r *Request) getBody() (reqBody []byte, err error) {
 	}
 
 	return reqBody, nil
-}
-
-func (r *Request) FetchSSE(messageChan chan []byte) {
-	defer close(messageChan)
-
-	if r.Url == "" {
-		logger.Error("URL is empty")
-		return
-	}
-
-	reqBody := []byte{}
-	var err error
-	if r.Body != nil {
-		reqBody, err = json.Marshal(r.Body)
-		if err != nil {
-			logger.Error("Error marshalling request body: ", err)
-			return
-		}
-	}
-
-	client := &http.Client{
-		Timeout: 0,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: r.InsecureSkipVerify,
-			},
-		},
-	}
-
-	req, err := http.NewRequest(r.Method, r.Url, bytes.NewBuffer(reqBody))
-	if err != nil {
-		logger.Error("Error creating request: ", err)
-		return
-	}
-
-	for key, value := range r.Headers {
-		if len(value) > 0 {
-			req.Header.Set(key, value)
-		}
-	}
-
-	req.Header.Set("Accept", "text/event-stream")
-	req.Header.Set("Cache-Control", "no-cache")
-	req.Header.Set("Connection", "keep-alive")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Error("Error fetching: ", "URL: ", r.Url, " Error: ", err)
-		return
-	}
-
-	defer resp.Body.Close()
-
-	reader := bufio.NewReader(resp.Body)
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			logger.Error("Error reading response: ", err)
-			break
-		}
-
-		messageChan <- line
-	}
 }

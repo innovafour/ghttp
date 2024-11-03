@@ -1,15 +1,20 @@
 package ghttp
 
-import "net/http"
+import (
+	"net/http"
 
-var logger iLogger
+	"github.com/adcmdev/logger"
+)
+
 var headers http.Header
 
-func Init(h http.Header, l iLogger) {
+func Init(h http.Header, logLevel ...string) {
 	headers = h
-	if l == nil {
-		l = &defaultLogger{}
+
+	if len(logLevel) > 0 {
+		logger.New(logger.LevelFromString(logLevel[0]))
+		return
 	}
 
-	logger = l
+	clientUuid = GetKeyFromHeaders(headers, clientUuidHeadersKey)
 }

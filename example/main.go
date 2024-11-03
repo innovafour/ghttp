@@ -2,7 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"net/http"
+	"sync"
 
 	"github.com/adcmdev/ghttp"
 )
@@ -20,57 +21,70 @@ func (l Logger) Info(v ...interface{}) {
 }
 
 func main() {
-	ghttp.Init(map[string][]string{}, Logger{})
+	ghttp.Init(map[string][]string{})
+
+	// SSE example
 
 	// request := ghttp.Request{
 	// 	Method: "POST",
-	// 	Url:    "https://api.br.soytul.com/product/catalog/v1/products/ean/multiple-ean/",
-	// 	Body:   []string{"7891040219247"},
+	// 	Url:    "https://api.openai.com/v1/chat/completions",
+	// 	Body: map[string]interface{}{
+	// 		"model":  "gpt-3.5-turbo-1106",
+	// 		"stream": true,
+	// 		"messages": []map[string]string{
+	// 			{
+	// 				"role":    "system",
+	// 				"content": "Tu name es ia, eres la asistente virtual de TUL",
+	// 			},
+	// 			{
+	// 				"role":    "user",
+	// 				"content": "Hola, cual es tu name?",
+	// 			},
+	// 		},
+	// 	},
 	// 	Headers: map[string]string{
 	// 		"Content-Type":  "application/json",
-	// 		"Authorization": "Bearer eyJraWQiOiJ0dWwtYmFja29mZmljZS1iciIsInR5cCI6IkpXVCIsImFsZyI6IlJTMzg0In0.eyJzdWIiOiIxZDU5ZGY2Mi0wZjI3LTRmZjEtYWY4ZS1mYThhMTU1OTBiY2UiLCJjb3VudHJ5IjoiQlIiLCJwZXJzb25fdHlwZSI6ImJhY2tvZmZpY2UiLCJyb2xlcyI6WyJiYWNrb2ZmaWNlIl0sImlzcyI6InNoYXJlZC1zZWN1cml0eSIsIm5hbWUiOiJhbmRyZXMgY2FycmlsbG8iLCJ0eXAiOiJCZWFyZXIiLCJlbnYiOiJwcm9kIiwiZXhwIjoxNzA1MDk3OTExLCJpYXQiOjE3MDUwOTcwMTEsImVtYWlsIjoiYW5kcmVzLmNhcnJpbGxvQHNveXR1bC5jb20iLCJkZXZpY2VfdXVpZCI6IjBiNWY5ZGQ3LTZlNTAtNGQ2Yy1iNzliLWMzNTQ2NDUxNjBmYSJ9.Do-xWiHV5EAXuoIdPFEMOaKR1MerCXAQnCIjjuSP3UuI1irnXu8oVjLiCDe101y7QRpk23AKeOHa7KtRotAtGaLVkV9n-rqHmlNevt3v-Fco37Jw_B-BAZPLIC0KsElooZQHcBGJh7euQU0SAx9N_PL1rneXSoKfnUaDuxi0mkFxZfL115GAhvR37zecS1EKR8A4HlR_OUfuT1V6HSInQU1c5p1G_knt2947-QqgZYxQCmmC-iJx9oGTQRNY_1Xp6fQ109xbsj2WCW1TogwiukVFc8ZXXaUriU8EPKBg38g2YLeLowYvHbV80OpTVKi-fcqoU3h5_pDjWzzjNG7uTXzgTZk145WEMYtVU6xrWZ2uz_xzWMInk0dFg2UoPxkDQhyU9TL0l_Jg3gFo_UfwFKVEuB1M3KEScnSbbbfeDo1AhpkkdvM7ODJMUuR8WTdW6HpMq9CmfaDbJ7EIdRvq_Nr7bgTNw7s2WIhCRdEVDsk00z2Sc9dHki-yHOi8imoh",
+	// 		"Authorization": "Bearer " + os.Getenv("OPENAI_API_KEY"),
 	// 	},
 	// }
 
-	// response := request.Fetch()
+	// messageChannel := make(chan []byte)
 
-	// if response.Error != nil {
-	// 	fmt.Println(response.Error, response.DataAsMap())
-	// 	return
+	// go request.FetchSSE(messageChannel)
+
+	// for message := range messageChannel {
+	// 	fmt.Println(string(message))
 	// }
 
 	// fmt.Println(response.DataAsSlice())
 
-	// SSE example
+	http.HandleFunc("/submit", formHandler)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go http.ListenAndServe(":8000", nil)
 
 	request := ghttp.Request{
 		Method: "POST",
-		Url:    "https://api.openai.com/v1/chat/completions",
-		Body: map[string]interface{}{
-			"model":  "gpt-3.5-turbo-1106",
-			"stream": true,
-			"messages": []map[string]string{
-				{
-					"role":    "system",
-					"content": "Tu nombre es ia, eres la asistente virtual de TUL",
-				},
-				{
-					"role":    "user",
-					"content": "Hola, cual es tu nombre?",
-				},
-			},
+		Url:    "http://localhost:8000/submit",
+		Body:   map[string]string{"name": "", "age": "30"},
+		Headers: map[string][]string{
+			"Content-Type": {"application/x-www-form-urlencoded"},
 		},
-		Headers: map[string]string{
-			"Content-Type":  "application/json",
-			"Authorization": "Bearer " + os.Getenv("OPENAI_API_KEY"),
-		},
+		MaxRetries: 3,
 	}
 
-	messageChannel := make(chan []byte)
+	response := request.Fetch()
 
-	go request.FetchSSE(messageChannel)
-
-	for message := range messageChannel {
-		fmt.Println(string(message))
+	if response.Error != nil {
+		fmt.Println(response.Error, response.DataAsMap())
+		return
 	}
+
+	fmt.Println(string(response.Data))
+	fmt.Println(response.Headers)
+
+	wg.Wait()
 }

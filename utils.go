@@ -8,6 +8,18 @@ import (
 	"strings"
 )
 
+var (
+	clientUuid string
+)
+
+func ClientUuid() string {
+	return clientUuid
+}
+
+const (
+	clientUuidHeadersKey string = "X-User-Uuid"
+)
+
 func GetKeyFromHeaders(headers http.Header, key string) string {
 	var result string
 

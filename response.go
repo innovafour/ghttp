@@ -3,12 +3,15 @@ package ghttp
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/adcmdev/logger"
 )
 
 type Response struct {
 	StatusCode int    `json:"status"`
 	Data       []byte `json:"data_byte"`
 	Error      error  `json:"err"`
+	Headers    http.Header
 }
 
 func (r *Response) DataAsMap() map[string]interface{} {
