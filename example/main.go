@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/adcmdev/ghttp"
+	"github.com/innovafour/ghttp"
 )
 
 type Logger struct{}

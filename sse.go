@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/adcmdev/logger"
+	"github.com/innovafour/logger"
 )
 
 func (r *Request) FetchSSE(messageChan chan []byte) {

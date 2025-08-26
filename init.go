@@ -3,7 +3,7 @@ package ghttp
 import (
 	"net/http"
 
-	"github.com/adcmdev/logger"
+	"github.com/innovafour/logger"
 )
 
 var headers http.Header

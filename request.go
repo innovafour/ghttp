@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/adcmdev/logger"
+	"github.com/innovafour/logger"
 )
 
 type Request struct {
