@@ -3,7 +3,6 @@ package ghttp
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -29,22 +28,8 @@ func (r *Request) FetchSSE(messageChan chan []byte) {
 		}
 	}
 
-	var insecure bool
-
-	if r.InsecureSkipVerify != nil {
-		insecure = *r.InsecureSkipVerify
-	} else {
-		insecure = true
-	}
-
-	client := &http.Client{
-		Timeout: 0,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
-			},
-		},
-	}
+	// No timeout: a stream stays open as long as the server keeps it.
+	client := &http.Client{Transport: transportFor(r.insecure(), r.RenegotiationSupport)}
 
 	req, err := http.NewRequest(r.Method, r.Url, bytes.NewBuffer(reqBody))
 	if err != nil {
